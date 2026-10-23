@@ -1,0 +1,33 @@
+name: debug-macos
+on:
+  push:
+    branches: [debug-macos]
+jobs:
+  debug:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1']
+        os: [macOS-latest]
+        arch: [x64, aarch64]
+        include:
+          - {version: 'lts', os: macOS-latest, arch: x64}
+          - {version: '1', os: ubuntu-latest, arch: x64}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - run: curl -sSfL -o test/UScounties.fgb "https://github.com/bjornharrtell/flatgeobuf/blob/master/test/data/UScounties.fgb?raw=true"
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Registered FlatBuffers
+        run: julia --project=. --check-bounds=yes debug/macos.jl
+      - name: Bounds checked FlatBuffers
+        if: always()
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.add(url="https://github.com/repro-code/FlatBuffers.jl", rev="bounds-checks")'
+          julia --project=. --check-bounds=yes debug/macos.jl
